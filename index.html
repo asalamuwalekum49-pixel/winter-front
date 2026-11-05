@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Winter Front</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;700&family=Silkscreen&display=swap">
+<style>
+/* Layout: the battlefield canvas fills the screen. The resource strip hugs the top edge and the command panel the bottom;
+   menus are framed pixel panels floating over a slowly drifting live map. */
+:root{
+  --night:#0b0d13;
+  --panel:rgba(15,18,26,.94);
+  --panel-solid:#141822;
+  --raised:#1d2230;
+  --line:#383e52;
+  --line-hi:#7d86a6;
+  --snow:#e1e5f0;
+  --muted:#9aa1b8;
+  --friend:#4a86ff;
+  --friend-deep:#22417f;
+  --friend-hi:#b1cbff;
+  --foe:#ee3a34;
+  --foe-deep:#7c2320;
+  --ember:#ffb44e;
+  --ok:#7ee28a;
+  --fuel:#8fd0ff;
+  --tech:#c4a0ff;
+  --shade:rgba(7,9,14,.55);
+  --display:"Pixelify Sans","Trebuchet MS",system-ui,sans-serif;
+  --tiny:"Silkscreen","Pixelify Sans","Courier New",ui-monospace,monospace;
+  color-scheme:dark;
+}
+[hidden]{display:none !important}
+html,body{height:100%}
+body{margin:0;background:var(--night);color:var(--snow);font-family:var(--display);overflow:hidden;-webkit-tap-highlight-color:transparent}
+#app{position:relative;height:100%;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#view{position:absolute;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated}
+canvas.ic{image-rendering:pixelated;display:block}
+.gut{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+button{font:inherit;color:inherit}
+.btn{font:500 16px/1.15 var(--display);color:var(--snow);background:var(--raised);border:2px solid var(--line);padding:10px 14px;min-height:42px;cursor:pointer;
+  box-shadow:inset -2px -2px 0 rgba(0,0,0,.45),inset 2px 2px 0 rgba(255,255,255,.07);text-align:left}
+.btn:hover{border-color:var(--line-hi)}
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible,.mapcard:focus-visible{outline:2px solid var(--ember);outline-offset:2px}
+.btn.primary{background:var(--friend-deep);border-color:var(--friend)}
+.btn.primary:hover{border-color:var(--friend-hi)}
+.btn[aria-pressed="true"]{border-color:var(--friend-hi);background:var(--friend-deep)}
+.btn.off{opacity:.5}
+.btn.off:active{transform:none}
+/* top strip */
+#hud{position:absolute;inset:0;pointer-events:none}
+#hud>*{pointer-events:auto}
+#top{position:absolute;top:0;left:0;right:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding-block:6px;background:var(--panel);border-bottom:2px solid var(--line)}
+.resbox{display:flex;align-items:center;gap:12px}
+.res{display:flex;align-items:center;gap:5px;font:400 13px/1 var(--tiny);font-variant-numeric:tabular-nums;white-space:nowrap}
+.res small{font:400 9px/1 var(--tiny);color:var(--muted)}
+.res.full b{color:var(--foe)}
+#tix{display:flex;align-items:center;gap:8px}
+.tix{display:flex;align-items:center;gap:5px;font:400 11px/1 var(--tiny);font-variant-numeric:tabular-nums}
+.tix .tb{width:58px;height:8px;background:#2a2f3e;border:1px solid #000;position:relative;overflow:hidden}
+.tix .tb i{position:absolute;top:0;bottom:0;left:0;background:var(--friend)}
+.tix.foe .tb i{background:var(--foe);left:auto;right:0}
+#pips{display:flex;gap:3px}
+.pip{width:22px;height:20px;display:grid;place-items:center;font:400 11px/1 var(--tiny);border:2px solid var(--line);background:var(--raised)}
+.pip.o1{background:var(--friend-deep);border-color:var(--friend)}
+.pip.o2{background:var(--foe-deep);border-color:var(--foe)}
+.pip.tw{width:26px;box-shadow:inset 0 -3px 0 #ffd65a}
+#clock{font:400 12px/1 var(--tiny);color:var(--muted);font-variant-numeric:tabular-nums}
+.sp{flex:1}
+.ib{width:38px;height:38px;display:grid;place-items:center;padding:0;min-height:0}
+#mini{position:absolute;right:max(16px,env(safe-area-inset-right,0px));width:112px;image-rendering:pixelated;border:2px solid var(--line);background:#000;box-shadow:3px 3px 0 rgba(0,0,0,.5);cursor:pointer;touch-action:none}
+/* command panel */
+#bot{position:absolute;left:0;right:0;bottom:0;display:grid;grid-template-columns:minmax(210px,300px) 1fr auto;grid-template-areas:"sel cmd glob";gap:8px 12px;align-items:end;
+  padding-top:8px;padding-bottom:max(8px,env(safe-area-inset-bottom,0px));background:var(--panel);border-top:2px solid var(--line)}
+#selInfo{grid-area:sel;display:flex;gap:10px;align-items:center;min-height:58px;min-width:0}
+.portrait{width:58px;height:58px;display:grid;place-items:center;background:var(--raised);border:2px solid var(--line);flex:0 0 auto}
+.seltxt{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}
+.seltxt h3{margin:0;font:700 15px/1.1 var(--display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seltxt .st{font:500 12px/1.25 var(--display);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seltxt .st.warn{color:var(--ember)}
+.seltxt .st.bad{color:var(--foe)}
+.hpb{height:5px;background:#3a3f50;max-width:180px}
+.hpb i{display:block;height:100%;background:var(--ok)}
+.hpb.cons i{background:#6ea8ff}
+.mix{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;font:400 10px/1 var(--tiny)}
+.mix span{display:flex;align-items:center;gap:3px}
+#queue{display:flex;gap:4px;flex-wrap:wrap}
+.qi{position:relative;width:34px;height:34px;display:grid;place-items:center;padding:0;min-height:0}
+.qi .pg{position:absolute;left:0;bottom:0;height:3px;background:var(--ember)}
+.qi.res .pg{background:var(--tech)}
+#cmd{grid-area:cmd;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-end;min-width:0}
+.cb{position:relative;width:66px;height:66px;padding:4px 2px 3px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;min-height:0;text-align:center;overflow:hidden}
+.cb .nm{font:500 10px/1.05 var(--display);max-width:62px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.cb .ct{display:flex;gap:4px;font:400 8px/1 var(--tiny)}
+.cb .hk{position:absolute;top:3px;left:4px;font:400 8px/1 var(--tiny);color:var(--muted)}
+.cb .cnt{position:absolute;top:3px;right:4px;font:400 9px/1 var(--tiny);color:var(--ember)}
+.cb .cd{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.62);pointer-events:none}
+.cb .pg{position:absolute;left:0;bottom:0;height:3px;background:var(--tech);pointer-events:none}
+.cb.locked canvas{opacity:.3}
+.cb.locked::after{content:"";position:absolute;top:18px;left:50%;width:10px;height:8px;margin-left:-5px;background:var(--muted);box-shadow:0 -4px 0 -2px var(--muted)}
+.cb.armed{border-color:var(--ember);background:#3a2a12}
+.cb.done{border-color:var(--ok)}
+#glob{grid-area:glob;display:grid;grid-template-columns:repeat(3,50px);gap:6px}
+.gb{position:relative;width:50px;height:50px;display:grid;place-items:center;padding:0;min-height:0}
+.gb b{position:absolute;top:2px;right:3px;font:400 8px/1 var(--tiny);color:var(--ember)}
+.gb .cd{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.62);pointer-events:none}
+.gb.armed{border-color:var(--ember);background:#3a2a12}
+.c{white-space:nowrap}
+.c::before{content:"";display:inline-block;width:6px;height:6px;margin-right:3px;background:currentColor}
+.c-mp{color:#dfe3ef}.c-mu{color:var(--ember)}.c-fu{color:var(--fuel)}.c-sup{color:var(--muted)}
+.c.no{color:var(--foe)}
+#tip{position:absolute;z-index:5;width:max-content;max-width:min(320px,calc(100% - 32px));background:var(--panel-solid);border:2px solid var(--line-hi);padding:9px 11px;pointer-events:none;box-shadow:4px 4px 0 rgba(0,0,0,.5)}
+#tip h4{margin:0 0 4px;font:700 15px/1.15 var(--display)}
+#tip p{margin:0 0 7px;font:400 13px/1.35 var(--display);color:var(--muted)}
+#tip .meta{display:flex;flex-wrap:wrap;gap:5px 10px;font:400 11px/1.2 var(--tiny)}
+#tip .req{color:var(--foe);font:500 12px/1.2 var(--display);margin-top:6px}
+#tip .wp{font:500 12px/1.3 var(--display);color:var(--snow);margin-top:5px}
+#toasts{position:absolute;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;width:min(84%,440px)}
+.toast{background:var(--panel);border:2px solid var(--line);padding:7px 12px;font:500 15px/1.2 var(--display);text-align:center;animation:pop .2s steps(3)}
+.toast.good{border-color:var(--friend)}
+.toast.bad{border-color:var(--foe)}
+@keyframes pop{from{transform:translateY(-6px);opacity:0}to{transform:none;opacity:1}}
+#nvv{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 58%,rgba(0,18,4,.6) 100%)}
+/* menus */
+#menu{position:absolute;inset:0;overflow-y:auto;display:grid;place-items:center;padding-block:20px;background:var(--shade)}
+.panel{width:min(720px,100%);background:var(--panel-solid);border:2px solid var(--line);box-shadow:0 0 0 2px #05060a,8px 8px 0 rgba(0,0,0,.5);padding:22px;display:flex;flex-direction:column;gap:16px}
+.eyebrow{font:400 11px/1.3 var(--tiny);letter-spacing:.12em;text-transform:uppercase;color:var(--ember)}
+h1{margin:0;font:700 clamp(46px,12vw,80px)/.9 var(--display);letter-spacing:.01em;text-wrap:balance;text-shadow:4px 4px 0 #000}
+h1 i{font-style:normal;color:var(--friend-hi)}
+h2{margin:0;font:700 28px/1.05 var(--display);text-wrap:balance}
+.panel p{margin:0;line-height:1.45;color:var(--muted);max-width:64ch}
+.stack{display:flex;flex-direction:column;gap:8px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.seg{display:flex;flex-wrap:wrap}
+.seg .btn{margin-left:-2px}
+.lbl{font:400 12px/1 var(--tiny);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.maps{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:10px}
+.mapcard{display:grid;grid-template-columns:76px 1fr;gap:12px;align-items:start;padding:10px;background:var(--raised);border:2px solid var(--line);cursor:pointer;text-align:left;color:var(--snow);font:inherit}
+.mapcard:hover{border-color:var(--line-hi)}
+.mapcard canvas{width:76px;image-rendering:pixelated;border:2px solid #000;display:block}
+.mapcard h3{margin:0 0 5px;font:700 19px/1.1 var(--display)}
+.mapcard .tags{font:400 9px/1.35 var(--tiny);color:var(--ember);letter-spacing:.05em;margin-bottom:6px;text-transform:uppercase}
+.mapcard p{font-size:13px;line-height:1.4}
+.mapcard .best{font:400 9px/1 var(--tiny);color:var(--ok);margin-top:7px}
+.help{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px 18px}
+.help h3{margin:0 0 4px;font:700 17px/1.15 var(--display);color:var(--snow)}
+.help p{font-size:14px}
+.ulist{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:8px}
+.urow{display:grid;grid-template-columns:44px 1fr;gap:10px;align-items:start;padding:8px;background:var(--raised);border:2px solid var(--line)}
+.urow .ui{height:36px;display:grid;place-items:center}
+.urow h4{margin:0 0 3px;font:700 14px/1.15 var(--display)}
+.urow p{font-size:12px;line-height:1.35}
+.urow .meta{display:flex;flex-wrap:wrap;gap:4px 8px;font:400 9px/1.2 var(--tiny);margin-top:5px}
+h3.sec{margin:6px 0 0;font:400 12px/1 var(--tiny);letter-spacing:.1em;text-transform:uppercase;color:var(--ember)}
+.stats{display:grid;grid-template-columns:1fr auto;gap:8px 16px;font:400 12px/1.2 var(--tiny);font-variant-numeric:tabular-nums}
+.stats b{font-weight:400;color:var(--snow)}
+.stats span{color:var(--muted)}
+#endTitle.win{color:var(--friend-hi)}
+#endTitle.lose{color:var(--foe)}
+#loading{position:absolute;inset:0;display:grid;place-items:center;background:rgba(7,9,14,.72);font:500 18px var(--display)}
+#groups{position:absolute;left:max(16px,env(safe-area-inset-left,0px));display:flex;flex-wrap:wrap;gap:4px;max-width:60%}
+.gch{width:38px;height:38px;padding:2px;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-align:center}
+.gch b{font:400 13px/1 var(--tiny);color:var(--snow)}
+.gch small{font:400 8px/1 var(--tiny);color:var(--muted)}
+.gch.add{font:400 18px/1 var(--tiny);color:var(--ok)}
+#bAlert{border-color:var(--foe)}
+/* step 8: the campaign «Four Seasons»: the war map, the area card, veterans and upgrades */
+.panel.wide{width:min(980px,100%)}
+.cstat{display:flex;flex-wrap:wrap;gap:4px 14px;font:400 11px/1.35 var(--tiny);color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.cstat span:first-child{color:var(--ember)}
+.camp{display:grid;grid-template-columns:minmax(0,440px) minmax(0,1fr);gap:16px;align-items:start}
+.wmap{position:relative;width:100%;aspect-ratio:2/3;border:2px solid #000;box-shadow:0 0 0 2px var(--line);background:#141822;overflow:hidden}
+.wmap canvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;display:block}
+.wa{position:absolute;transform:translate(-50%,-50%);min-height:0;padding:3px 6px;font:500 12px/1.1 var(--display);max-width:31%;text-align:center;background:rgba(15,18,26,.86);z-index:1}
+.wa:active{transform:translate(-50%,-50%)}
+.wa.ours,.wa.ours[aria-pressed="true"]{border-color:var(--friend);background:rgba(34,65,127,.92)}
+.wa.open{border-color:var(--ember);animation:wpulse 1.2s steps(2) infinite}
+.wa.closed{color:var(--muted)}
+.wa.later,.wa.lost{color:var(--muted);opacity:.78}
+.wa.sel{outline:2px solid #fff;outline-offset:1px;z-index:2}
+@keyframes wpulse{50%{border-color:#ffe2a8}}
+.wseason{position:absolute;left:4px;font:400 9px/1 var(--tiny);letter-spacing:.1em;text-transform:uppercase;color:#0b0d13;background:rgba(225,229,240,.78);padding:2px 4px;pointer-events:none}
+.wrear{position:absolute;bottom:3px;font:400 9px/1 var(--tiny);letter-spacing:.08em;text-transform:uppercase;color:var(--friend-hi);pointer-events:none;white-space:nowrap}
+.cinfo{display:grid;grid-template-columns:76px 1fr;gap:12px;align-items:start;padding:10px;background:var(--raised);border:2px solid var(--line)}
+.cinfo canvas{width:76px;image-rendering:pixelated;border:2px solid #000;display:block}
+.cinfo h3{margin:0 0 5px;font:700 19px/1.1 var(--display)}
+.cinfo .tags{font:400 9px/1.35 var(--tiny);color:var(--ember);letter-spacing:.05em;margin-bottom:6px;text-transform:uppercase}
+.cinfo p{font-size:13px;line-height:1.4;margin:0 0 6px}
+.cinfo .btn{margin-top:4px}
+.cst.ours{color:var(--friend-hi)}.cst.open{color:var(--ember)}
+.vets{display:flex;flex-wrap:wrap;gap:6px}
+.vets p{font-size:13px}
+.vchip{display:flex;align-items:center;gap:5px;padding:4px 6px;background:var(--raised);border:2px solid var(--line)}
+.vchip b{font:400 10px/1 var(--tiny);color:#ffd678}
+.ups{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.upcol{display:flex;flex-direction:column;gap:8px}
+.upr .upn{font:700 18px/1 var(--display);color:var(--ember)}
+.upr.own{border-color:var(--friend)}
+.upr .btn{margin-top:7px;min-height:34px;padding:6px 10px;font-size:14px}
+.cres p{margin:0 0 5px;font-size:14px;color:var(--snow)}
+.cres p.good{color:var(--friend-hi)}.cres p.bad{color:#ff8f86}
+@media (max-width:759px){
+  #bot{grid-template-columns:1fr auto;grid-template-areas:"sel glob" "cmd cmd";gap:6px 8px}
+  #glob{grid-template-columns:repeat(5,40px);gap:4px}
+  .gb{width:40px;height:40px}
+  #selInfo{min-height:44px;gap:8px}
+  .portrait{width:44px;height:44px}
+  .seltxt h3{font-size:14px}
+  .cb{width:52px;height:52px;justify-content:center;padding:3px 1px 2px}
+  .cb .nm{display:none}
+  .cb .ct{flex-wrap:wrap;justify-content:center;gap:1px 3px;max-width:50px}
+  .cb .ct .c::before{width:4px;height:4px;margin-right:2px}
+  #toasts{left:max(16px,env(safe-area-inset-left,0px));right:112px;transform:none;width:auto;align-items:flex-start}
+  .toast{font-size:14px;text-align:left}
+  #cmd{gap:5px}
+  .hide-s{display:none !important}
+  #mini{width:84px}
+  .panel{padding:16px}
+  .camp{grid-template-columns:1fr}
+  .wa{font-size:11px;padding:2px 4px;max-width:34%}
+  #top{gap:5px 10px}
+  .resbox{gap:9px}
+  .res{font-size:12px}
+  .tix .tb{width:40px}
+}
+@media (hover:none){.cb .hk{display:none}}
+@media (prefers-reduced-motion:reduce){.toast,.wa.open{animation:none}}
+</style>
+
+<div id="app">
+  <canvas id="view" aria-label="Battlefield"></canvas>
+  <div id="nvv" hidden></div>
+  <div id="hud" hidden>
+    <div id="top" class="gut">
+      <div class="resbox">
+        <div class="res" id="rMp"><canvas class="ic" data-icon="mp" data-col="#dfe3ef"></canvas><b id="vMp">0</b><small id="iMp" class="hide-s"></small></div>
+        <div class="res" id="rMu"><canvas class="ic" data-icon="mu" data-col="#ffb44e"></canvas><b id="vMu">0</b><small id="iMu" class="hide-s"></small></div>
+        <div class="res" id="rFu"><canvas class="ic" data-icon="fu" data-col="#8fd0ff"></canvas><b id="vFu">0</b><small id="iFu" class="hide-s"></small></div>
+        <div class="res" id="rSup"><canvas class="ic" data-icon="sup" data-col="#9aa1b8"></canvas><b id="vSup">0/40</b></div>
+      </div>
+      <div id="tix">
+        <div class="tix" id="rMe"><span id="nMe">500</span><span class="tb"><i id="tMe"></i></span></div>
+        <div id="pips"></div>
+        <div class="tix foe" id="rFoe"><span class="tb"><i id="tFoe"></i></span><span id="nFoe">500</span></div>
+      </div>
+      <div class="sp"></div>
+      <span id="clock" class="hide-s">00:00</span>
+      <button class="btn ib hide-s" id="bZoomOut" type="button"><canvas class="ic" data-icon="minus"></canvas></button>
+      <button class="btn ib hide-s" id="bZoomIn" type="button"><canvas class="ic" data-icon="plus"></canvas></button>
+      <button class="btn ib" id="bAlert" type="button" hidden><canvas class="ic" data-icon="alert"></canvas></button>
+      <button class="btn ib" id="bNV" type="button" aria-pressed="false"><canvas class="ic" data-icon="nv"></canvas></button>
+      <button class="btn ib" id="bPause" type="button"><canvas class="ic" data-icon="pause"></canvas></button>
+    </div>
+    <canvas id="mini" width="128" height="200" aria-label="Minimap"></canvas>
+    <div id="groups"></div>
+    <div id="toasts" aria-live="polite"></div>
+    <div id="bot" class="gut">
+      <div id="selInfo"></div>
+      <div id="cmd" role="toolbar"></div>
+      <div id="glob">
+        <button class="btn gb" id="gArmy" type="button"><canvas class="ic" data-icon="army"></canvas></button>
+        <button class="btn gb" id="gHQ" type="button"><canvas class="ic" data-icon="hq"></canvas></button>
+        <button class="btn gb" id="gArty" type="button"><b>120</b><canvas class="ic" data-icon="artillery" data-col="#ffb44e"></canvas><i class="cd"></i></button>
+        <button class="btn gb" id="gRecon" type="button"><b>50</b><canvas class="ic" data-icon="recon" data-col="#b1cbff"></canvas><i class="cd"></i></button>
+        <button class="btn gb" id="gAb" type="button" hidden><b></b><canvas class="ic" data-icon="charge" data-col="#ffd27a"></canvas><i class="cd"></i></button>
+      </div>
+    </div>
+    <div id="tip" hidden></div>
+  </div>
+
+  <div id="menu" class="gut">
+    <section id="scrMain" class="panel">
+      <div class="eyebrow" data-i18n="eyebrow"></div>
+      <h1 id="gameTitle"></h1>
+      <p data-i18n="tagline"></p>
+      <div class="stack">
+        <button class="btn" id="mContinue" type="button" data-i18n="continue" hidden></button>
+        <button class="btn primary" id="mPlay" type="button" data-i18n="play"></button>
+        <button class="btn" id="mCamp" type="button" data-i18n="campBtn"></button>
+        <button class="btn" id="mHelp" type="button" data-i18n="howTo"></button>
+      </div>
+      <div class="row"><span class="lbl" data-i18n="language"></span>
+        <div class="seg"><button class="btn" type="button" data-lang="en">English</button><button class="btn" type="button" data-lang="ru">Русский</button><button class="btn" type="button" data-lang="uz">O‘zbekcha</button></div></div>
+      <div class="row"><span class="lbl" data-i18n="sound"></span><button class="btn" id="mSound" type="button"></button></div>
+    </section>
+    <section id="scrMaps" class="panel" hidden>
+      <div class="row"><h2 data-i18n="chooseMap"></h2><button class="btn" type="button" data-back data-i18n="back"></button></div>
+      <div class="row"><span class="lbl" data-i18n="difficulty"></span>
+        <div class="seg"><button class="btn" type="button" data-diff="easy" data-i18n="easy"></button><button class="btn" type="button" data-diff="normal" data-i18n="normal"></button><button class="btn" type="button" data-diff="hard" data-i18n="hard"></button></div></div>
+      <div class="row"><span class="lbl" data-i18n="length"></span>
+        <div class="seg"><button class="btn" type="button" data-len="short" data-i18n="len_short"></button><button class="btn" type="button" data-len="normal" data-i18n="len_normal"></button><button class="btn" type="button" data-len="long" data-i18n="len_long"></button></div></div>
+      <div class="row"><span class="lbl" data-i18n="armyLbl"></span>
+        <div class="seg"><button class="btn" type="button" data-army="inf" data-i18n="army_inf_s"></button><button class="btn" type="button" data-army="tank" data-i18n="army_tank_s"></button><button class="btn" type="button" data-army="air" data-i18n="army_air_s"></button></div></div>
+      <p id="armyDesc"></p>
+      <div class="maps" id="mapList"></div>
+    </section>
+    <section id="scrCamp" class="panel wide" hidden>
+      <div class="row"><h2 data-i18n="campTitle"></h2><button class="btn" type="button" data-back data-i18n="back"></button></div>
+      <div id="campSetup" class="stack">
+        <p data-i18n="campIntro"></p>
+        <div class="row"><span class="lbl" data-i18n="difficulty"></span>
+          <div class="seg"><button class="btn" type="button" data-cdiff="easy" data-i18n="easy"></button><button class="btn" type="button" data-cdiff="normal" data-i18n="normal"></button><button class="btn" type="button" data-cdiff="hard" data-i18n="hard"></button></div></div>
+        <div class="row"><span class="lbl" data-i18n="length"></span>
+          <div class="seg"><button class="btn" type="button" data-clen="short" data-i18n="len_short"></button><button class="btn" type="button" data-clen="normal" data-i18n="len_normal"></button><button class="btn" type="button" data-clen="long" data-i18n="len_long"></button></div></div>
+        <div class="row"><span class="lbl" data-i18n="armyLbl"></span>
+          <div class="seg"><button class="btn" type="button" data-carmy="inf" data-i18n="army_inf_s"></button><button class="btn" type="button" data-carmy="tank" data-i18n="army_tank_s"></button><button class="btn" type="button" data-carmy="air" data-i18n="army_air_s"></button></div></div>
+        <p id="cArmyDesc"></p>
+        <button class="btn primary" id="cStart" type="button" data-i18n="campStart"></button>
+      </div>
+      <div id="campMain" class="stack" hidden>
+        <div class="cstat" id="campStat"></div>
+        <div class="camp">
+          <div class="wmap"><canvas id="wmapCv" width="160" height="240" aria-label="War map"></canvas><div id="wmapL"></div></div>
+          <div class="stack">
+            <div class="cinfo" id="campInfo"></div>
+            <p id="campGoal"></p>
+            <h3 class="sec" id="campVetsH"></h3>
+            <div class="vets" id="campVets"></div>
+            <div class="stack">
+              <button class="btn" id="cContinue" type="button" data-i18n="continue" hidden></button>
+              <button class="btn" id="cUps" type="button" data-i18n="campUps"></button>
+              <button class="btn" id="cNew" type="button" data-i18n="campNew"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section id="scrUps" class="panel wide" hidden>
+      <div class="row"><h2 data-i18n="campUps"></h2><button class="btn" id="upsBack" type="button" data-i18n="back"></button></div>
+      <p id="upsCP"></p>
+      <p data-i18n="upsIntro"></p>
+      <div class="ups" id="upsList"></div>
+    </section>
+    <section id="scrHelp" class="panel" hidden>
+      <div class="row"><h2 data-i18n="howTo"></h2><button class="btn" type="button" data-back data-i18n="back"></button></div>
+      <div class="help" id="helpBody"></div>
+      <h3 class="sec" data-i18n="hlp_units"></h3>
+      <div class="ulist" id="helpUnits"></div>
+      <h3 class="sec" data-i18n="hlp_blds"></h3>
+      <div class="ulist" id="helpBlds"></div>
+    </section>
+    <section id="scrPause" class="panel" hidden>
+      <h2 data-i18n="paused"></h2>
+      <p data-i18n="objective"></p>
+      <p id="pArmy"></p>
+      <div class="stack">
+        <button class="btn primary" id="pResume" type="button" data-i18n="resume"></button>
+        <button class="btn" id="pSave" type="button" data-i18n="save"></button>
+        <button class="btn" id="pRestart" type="button" data-i18n="restart"></button>
+        <button class="btn" id="pHelp" type="button" data-i18n="howTo"></button>
+        <button class="btn" id="pQuit" type="button" data-i18n="quit"></button>
+      </div>
+      <div class="row"><span class="lbl" data-i18n="language"></span>
+        <div class="seg"><button class="btn" type="button" data-lang="en">English</button><button class="btn" type="button" data-lang="ru">Русский</button><button class="btn" type="button" data-lang="uz">O‘zbekcha</button></div></div>
+    </section>
+    <section id="scrEnd" class="panel" hidden>
+      <div class="eyebrow" id="endMap"></div>
+      <h2 id="endTitle"></h2>
+      <p id="endText"></p>
+      <div class="stats" id="endStats"></div>
+      <div class="cres" id="endCamp" hidden></div>
+      <div class="stack">
+        <button class="btn primary" id="eCamp" type="button" data-i18n="campToMap" hidden></button>
+        <button class="btn primary" id="eAgain" type="button" data-i18n="again"></button>
+        <button class="btn" id="eMaps" type="button" data-i18n="otherMaps"></button>
+      </div>
+    </section>
+  </div>
+  <div id="loading" hidden><span data-i18n="loading"></span></div>
+</div>
+
+<script src="js/core.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/art.js"></script>
+<script src="js/world.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/sea.js"></script>
+<script src="js/army.js"></script>
+<script src="js/campaign.js"></script>
+<script src="js/draw.js"></script>
+<script src="js/ui.js"></script>
+
+</html>
